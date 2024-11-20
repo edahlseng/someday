@@ -1,18 +1,42 @@
 const CALENDAR = "primary";
-const TIME_ZONE = "America/New_York";
+const TIME_ZONE = "America/Los_Angeles";
 //  America/Los_Angeles
 //  America/Denver
 //  America/Chicago
 //  Europe/London
 //  Europe/Berlin
-const WORKDAYS = [1, 2, 3, 4, 5];
-const WORKHOURS = {
-  start: 9,
-  end: 13,
-};
 const DAYS_IN_ADVANCE = 28;
 //high numbered days in advance cause significant loading time slow down
 const TIMESLOT_DURATION = 30;
+
+type ConstraintEffect = "available" | "unavailable";
+
+type ConstraintDayOfWeek = {
+  type: "day-of-week";
+  effect: ConstraintEffect;
+  days: number[];
+};
+type ConstraintOverlappingEvent = {
+  type: "overlapping-event";
+  effect: ConstraintEffect;
+};
+type ConstraintHourOfDay = {
+  type: "hour-of-day";
+  effect: ConstraintEffect;
+  hourStart: number;
+  hourEnd: number;
+};
+
+type Constraint =
+  | ConstraintDayOfWeek
+  | ConstraintOverlappingEvent
+  | ConstraintHourOfDay;
+
+const constraints: Constraint[] = [
+  { type: "day-of-week", effect: "unavailable", days: [0, 6] },
+  { type: "overlapping-event", effect: "unavailable" },
+  { type: "hour-of-day", effect: "unavailable", hourStart: 18, hourEnd: 9 },
+];
 
 const TSDURMS = TIMESLOT_DURATION * 60000;
 
@@ -27,7 +51,7 @@ function fetchAvailability(): {
   durationMinutes: number;
 } {
   const nearestTimeslot = new Date(
-    Math.floor(new Date().getTime() / TSDURMS) * TSDURMS
+    Math.floor(new Date().getTime() / TSDURMS) * TSDURMS,
   );
   const calendarId = CALENDAR;
   const now = nearestTimeslot;
@@ -35,8 +59,8 @@ function fetchAvailability(): {
     Date.UTC(
       now.getUTCFullYear(),
       now.getUTCMonth(),
-      now.getUTCDate() + DAYS_IN_ADVANCE
-    )
+      now.getUTCDate() + DAYS_IN_ADVANCE,
+    ),
   );
 
   const response = Calendar.Freebusy!.query({
@@ -61,15 +85,46 @@ function fetchAvailability(): {
     const start = new Date(t);
     const end = new Date(t + TSDURMS);
     const startTZ = new Date(
-      Utilities.formatDate(start, TIME_ZONE, "yyyy-MM-dd'T'HH:mm:ss")
+      Utilities.formatDate(start, TIME_ZONE, "yyyy-MM-dd'T'HH:mm:ss"),
     );
-    if (startTZ.getHours() < WORKHOURS.start) continue;
-    if (startTZ.getHours() >= WORKHOURS.end) continue;
-    if (WORKDAYS.indexOf(startTZ.getDay()) < 0) continue;
-    if (events.some((event) => event.start < end && event.end > start)) {
-      continue;
+
+    let desiredEffect = "available";
+
+    for (const constraint of constraints) {
+      let constraintMatchesTimeslot = false;
+      switch (constraint.type) {
+        case "day-of-week":
+          constraintMatchesTimeslot =
+            constraint.days.indexOf(startTZ.getDay()) >= 0;
+          break;
+        case "overlapping-event":
+          constraintMatchesTimeslot = events.some(
+            (event) => event.start < end && event.end > start,
+          );
+          break;
+        case "hour-of-day":
+          if (constraint.hourStart <= constraint.hourEnd) {
+            constraintMatchesTimeslot =
+              startTZ.getHours() >= constraint.hourStart &&
+              startTZ.getHours() < constraint.hourEnd;
+          } else {
+            constraintMatchesTimeslot = !(
+              startTZ.getHours() >= constraint.hourEnd &&
+              startTZ.getHours() < constraint.hourStart
+            );
+          }
+          break;
+      }
+
+      if (constraintMatchesTimeslot) {
+        desiredEffect = constraint.effect;
+        break;
+      }
     }
-    timeslots.push(start.toISOString());
+
+    if (desiredEffect == "available") {
+      timeslots.push(start.toISOString());
+    }
   }
   return { timeslots, durationMinutes: TIMESLOT_DURATION };
 }
@@ -79,7 +134,7 @@ function bookTimeslot(
   name: string,
   email: string,
   phone: string,
-  note: string
+  note: string,
 ): string {
   Logger.log(`Booking timeslot: ${timeslot} for ${name}`);
   const calendarId = CALENDAR;
@@ -120,7 +175,7 @@ function bookTimeslot(
         guests: email,
         sendInvites: true,
         status: "confirmed",
-      }
+      },
     );
     Logger.log(`Event created: ${event.getId()}`);
     return `Timeslot booked successfully`;
