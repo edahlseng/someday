@@ -24,7 +24,7 @@ Someday is a simple, open-source scheduling tool designed specifically for Gmail
 
 ## Getting Started
 
-### Customize 
+### Customize
 
 Change the following variables in `backend/src/app.ts` to customize your availability settings:
 
@@ -53,24 +53,24 @@ const TIMESLOT_DURATION = 30;
 - `npm run dev`
 - dummyData will be generated on the fly using the generateDummyData function ~line 42 in `frontend/hooks/useGoogleTimeSlots.ts`
 
-### Install 
+### Install
 
 
 ### Step 1: Set Up Your Environment
 
 __you may need to sign out of all accounts, and only into your target account__
 
-1. **Install `clasp`:**
+1. **Install dependencies:**
    - Ensure you have Node.js installed.
-   - Install `clasp` globally using npm:
+   - Install dependencies:
      ```bash
-     npm install -g @google/clasp
+     npm install
      ```
 
 2. **Login with `clasp`:**
    - Execute the following command to log in:
      ```bash
-     clasp login
+     npx clasp login
      ```
 
 3. **Remove Existing Configuration (if necessary):**
@@ -90,7 +90,7 @@ __you may need to sign out of all accounts, and only into your target account__
 1. **Create a New Project:**
    - Create a new Apps Script project as a web app:
      ```bash
-     clasp create --type webapp
+     npx clasp create --type webapp
      ```
 
 2. **Deploy the Script:**
@@ -103,9 +103,9 @@ __you may need to sign out of all accounts, and only into your target account__
 3. **Access the Web App:**
    - Visit the URL provided after deployment.
    - You will see the message "Authorization is required to perform that action."
-  
+
 4. **Authorize the Web App: (!!! IMPORTANT !!!)**
-   - run `clasp open` to open the editor
+   - run `npx clasp open` to open the editor
    - go to `dist/app.gs`
    - in the drop down at the top, select `fetchAvailability` then hit run
    - Authorization modal will pop up, 'Review permissions', select your account, you will see a warning, go to advanced, then Go to <your script>(unsafe) then click Allow
@@ -121,7 +121,7 @@ __you may need to sign out of all accounts, and only into your target account__
 
 - `deployments.sh` - list all deployments web-urls
 
-- `clasp open` - open the script editor
+- `npx clasp open` - open the script editor
 
 ## Screen Captures
 

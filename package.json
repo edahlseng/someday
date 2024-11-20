@@ -12,5 +12,8 @@
   "description": "",
   "dependencies": {
     "@date-fns/tz": "^1.2.0"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2"
   }
 }
