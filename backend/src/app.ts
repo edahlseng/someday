@@ -20,8 +20,8 @@ type ConstraintOverlappingEvent = {
   type: "overlapping-event";
   effect: ConstraintEffect;
 };
-type ConstraintHourOfDay = {
-  type: "hour-of-day";
+type ConstraintTimeOfDay = {
+  type: "time-of-day";
   effect: ConstraintEffect;
   hourStart: number;
   hourEnd: number;
@@ -30,12 +30,12 @@ type ConstraintHourOfDay = {
 type Constraint =
   | ConstraintDayOfWeek
   | ConstraintOverlappingEvent
-  | ConstraintHourOfDay;
+  | ConstraintTimeOfDay;
 
 const constraints: Constraint[] = [
   { type: "day-of-week", effect: "unavailable", days: [0, 6] },
   { type: "overlapping-event", effect: "unavailable" },
-  { type: "hour-of-day", effect: "unavailable", hourStart: 18, hourEnd: 9 },
+  { type: "time-of-day", effect: "unavailable", hourStart: 18, hourEnd: 9.5 },
 ];
 
 const TSDURMS = TIMESLOT_DURATION * 60000;
@@ -44,6 +44,10 @@ function doGet(): GoogleAppsScript.HTML.HtmlOutput {
   return HtmlService.createHtmlOutputFromFile("dist/index")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag("viewport", "width=device-width, initial-scale=1");
+}
+
+function getHoursWithDecimalMinutes(date: Date) {
+  return date.getHours() + date.getMinutes() / 60;
 }
 
 function fetchAvailability(): {
@@ -102,15 +106,15 @@ function fetchAvailability(): {
             (event) => event.start < end && event.end > start,
           );
           break;
-        case "hour-of-day":
+        case "time-of-day":
           if (constraint.hourStart <= constraint.hourEnd) {
             constraintMatchesTimeslot =
-              startTZ.getHours() >= constraint.hourStart &&
-              startTZ.getHours() < constraint.hourEnd;
+              getHoursWithDecimalMinutes(startTZ) >= constraint.hourStart &&
+              getHoursWithDecimalMinutes(startTZ) < constraint.hourEnd;
           } else {
             constraintMatchesTimeslot = !(
-              startTZ.getHours() >= constraint.hourEnd &&
-              startTZ.getHours() < constraint.hourStart
+              getHoursWithDecimalMinutes(startTZ) >= constraint.hourEnd &&
+              getHoursWithDecimalMinutes(startTZ) < constraint.hourStart
             );
           }
           break;
