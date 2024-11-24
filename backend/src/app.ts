@@ -26,16 +26,23 @@ type ConstraintTimeOfDay = {
   hourStart: number;
   hourEnd: number;
 };
+type ConstraintMeetingTimeInDay = {
+  type: "meeting-time-in-day";
+  effect: ConstraintEffect;
+  maximumHours: number;
+};
 
 type Constraint =
   | ConstraintDayOfWeek
   | ConstraintOverlappingEvent
-  | ConstraintTimeOfDay;
+  | ConstraintTimeOfDay
+  | ConstraintMeetingTimeInDay;
 
 const constraints: Constraint[] = [
   { type: "day-of-week", effect: "unavailable", days: [0, 6] },
   { type: "overlapping-event", effect: "unavailable" },
   { type: "time-of-day", effect: "unavailable", hourStart: 18, hourEnd: 9.5 },
+  { type: "meeting-time-in-day", effect: "unavailable", maximumHours: 5 },
 ];
 
 const TSDURMS = TIMESLOT_DURATION * 60000;
@@ -67,18 +74,37 @@ function fetchAvailability(): {
     ),
   );
 
-  const response = Calendar.Freebusy!.query({
+  const response = Calendar.Events!.list(calendarId, {
     timeMin: now.toISOString(),
     timeMax: end.toISOString(),
-    items: [{ id: calendarId }],
-  });
+    eventTypes: ["default", "focusTime", "fromGmail", "outOfOffice"],
+    singleEvents: true,
+  }) as {
+    items: {
+      start: { date?: string; dateTime?: string; timeZone?: string };
+      end: { date?: string; dateTime?: string; timeZone?: string };
+      transparency?: "opaque" | "transparent";
+    }[];
+    timeZone: string;
+  };
 
-  const events = (
-    (response as any).calendars[calendarId].busy as {
-      start: string;
-      end: string;
-    }[]
-  ).map(({ start, end }) => ({ start: new Date(start), end: new Date(end) }));
+  const events = response.items.map(({ start, end, transparency }) => ({
+    start: start.dateTime
+      ? new Date(start.dateTime)
+      : Utilities.parseDate(
+          start.date!,
+          start.timeZone || response.timeZone,
+          "yyyy-MM-dd",
+        ),
+    end: end.dateTime
+      ? new Date(end.dateTime)
+      : Utilities.parseDate(
+          end.date!,
+          end.timeZone || response.timeZone,
+          "yyyy-MM-dd",
+        ),
+    transparency: transparency,
+  }));
   //get all timeslots between now and end date
   const timeslots = [];
   for (
@@ -103,7 +129,10 @@ function fetchAvailability(): {
           break;
         case "overlapping-event":
           constraintMatchesTimeslot = events.some(
-            (event) => event.start < end && event.end > start,
+            (event) =>
+              event.start < end &&
+              event.end > start &&
+              event.transparency != "transparent",
           );
           break;
         case "time-of-day":
