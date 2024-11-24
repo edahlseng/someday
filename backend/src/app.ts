@@ -26,23 +26,16 @@ type ConstraintTimeOfDay = {
   hourStart: number;
   hourEnd: number;
 };
-type ConstraintMeetingTimeInDay = {
-  type: "meeting-time-in-day";
-  effect: ConstraintEffect;
-  maximumHours: number;
-};
 
 type Constraint =
   | ConstraintDayOfWeek
   | ConstraintOverlappingEvent
-  | ConstraintTimeOfDay
-  | ConstraintMeetingTimeInDay;
+  | ConstraintTimeOfDay;
 
 const constraints: Constraint[] = [
   { type: "day-of-week", effect: "unavailable", days: [0, 6] },
   { type: "overlapping-event", effect: "unavailable" },
   { type: "time-of-day", effect: "unavailable", hourStart: 18, hourEnd: 9.5 },
-  { type: "meeting-time-in-day", effect: "unavailable", maximumHours: 5 },
 ];
 
 const TSDURMS = TIMESLOT_DURATION * 60000;
