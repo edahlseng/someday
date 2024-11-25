@@ -26,16 +26,27 @@ type ConstraintTimeOfDay = {
   hourStart: number;
   hourEnd: number;
 };
+type ConstraintMeetingTimeInDay = {
+  type: "meeting-time-in-day";
+  effect: ConstraintEffect;
+  greaterThanOrEqualTo: number;
+};
 
 type Constraint =
   | ConstraintDayOfWeek
   | ConstraintOverlappingEvent
-  | ConstraintTimeOfDay;
+  | ConstraintTimeOfDay
+  | ConstraintMeetingTimeInDay;
 
 const constraints: Constraint[] = [
   { type: "day-of-week", effect: "unavailable", days: [0, 6] },
   { type: "overlapping-event", effect: "unavailable" },
   { type: "time-of-day", effect: "unavailable", hourStart: 18, hourEnd: 9.5 },
+  {
+    type: "meeting-time-in-day",
+    effect: "unavailable",
+    greaterThanOrEqualTo: 5,
+  },
 ];
 
 const TSDURMS = TIMESLOT_DURATION * 60000;
@@ -48,6 +59,42 @@ function doGet(): GoogleAppsScript.HTML.HtmlOutput {
 
 function getHoursWithDecimalMinutes(date: Date) {
   return date.getHours() + date.getMinutes() / 60;
+}
+
+function dateStringsBetweenEndpoints(
+  timeZone: string,
+  startDate: Date,
+  endDate: Date,
+): string[] {
+  const dates = [];
+  let currentDate = startDate;
+  while (currentDate <= startDate) {
+    dates.push(Utilities.formatDate(currentDate, timeZone, "yyyy-MM-dd"));
+    currentDate = new Date(currentDate.getTime() + 1000 * 60 * 60 * 24);
+  }
+  const endDateString = Utilities.formatDate(endDate, timeZone, "yyyy-MM-dd");
+  if (dates[dates.length - 1] != endDateString) {
+    dates.push(endDateString);
+  }
+  return dates;
+}
+
+function meetingDurationTotalOnDate(
+  events: { start: Date; end: Date; numberOfAttendees: number }[],
+  date: Date,
+) {
+  // Note: the date parameter is expected to be set to a time of 00:00
+  const nextDate = new Date(date.getTime() + 1000 * 60 * 60 * 24);
+  let meetingDurationMilliseconds = events
+    .filter((x) => x.numberOfAttendees > 1)
+    .reduce(
+      (total, x) =>
+        total +
+        (Math.min(nextDate.getTime(), x.end.getTime()) -
+          Math.max(date.getTime(), x.start.getTime())),
+      0,
+    );
+  return meetingDurationMilliseconds / 1000 / 60 / 60;
 }
 
 function fetchAvailability(): {
@@ -77,27 +124,45 @@ function fetchAvailability(): {
       start: { date?: string; dateTime?: string; timeZone?: string };
       end: { date?: string; dateTime?: string; timeZone?: string };
       transparency?: "opaque" | "transparent";
+      attendees: any[];
     }[];
     timeZone: string;
   };
 
-  const events = response.items.map(({ start, end, transparency }) => ({
-    start: start.dateTime
-      ? new Date(start.dateTime)
-      : Utilities.parseDate(
-          start.date!,
-          start.timeZone || response.timeZone,
-          "yyyy-MM-dd",
-        ),
-    end: end.dateTime
-      ? new Date(end.dateTime)
-      : Utilities.parseDate(
-          end.date!,
-          end.timeZone || response.timeZone,
-          "yyyy-MM-dd",
-        ),
-    transparency: transparency,
-  }));
+  const eventsByDate: { [key: string]: any } = {};
+  const events = response.items.map(
+    ({ start, end, transparency, attendees }) => {
+      const eventDetails = {
+        start: start.dateTime
+          ? new Date(start.dateTime)
+          : Utilities.parseDate(
+              start.date!,
+              start.timeZone || response.timeZone,
+              "yyyy-MM-dd",
+            ),
+        end: end.dateTime
+          ? new Date(end.dateTime)
+          : Utilities.parseDate(
+              end.date!,
+              end.timeZone || response.timeZone,
+              "yyyy-MM-dd",
+            ),
+        transparency: transparency,
+        numberOfAttendees: attendees ? attendees.length : 1,
+      };
+
+      for (const dateString of dateStringsBetweenEndpoints(
+        response.timeZone,
+        eventDetails.start,
+        eventDetails.end,
+      )) {
+        if (!eventsByDate[dateString]) eventsByDate[dateString] = [];
+        eventsByDate[dateString].push(eventDetails);
+      }
+
+      return eventDetails;
+    },
+  );
   //get all timeslots between now and end date
   const timeslots = [];
   for (
@@ -138,6 +203,21 @@ function fetchAvailability(): {
               getHoursWithDecimalMinutes(startTZ) >= constraint.hourEnd &&
               getHoursWithDecimalMinutes(startTZ) < constraint.hourStart
             );
+          }
+          break;
+        case "meeting-time-in-day":
+          for (const dateString of dateStringsBetweenEndpoints(
+            response.timeZone,
+            start,
+            end,
+          )) {
+            const totalMeetingTime = meetingDurationTotalOnDate(
+              eventsByDate[dateString],
+              Utilities.parseDate(dateString, response.timeZone, "yyyy-MM-dd"),
+            );
+            if (totalMeetingTime >= constraint.greaterThanOrEqualTo) {
+              constraintMatchesTimeslot = true;
+            }
           }
           break;
       }
