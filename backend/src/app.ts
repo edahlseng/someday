@@ -277,7 +277,7 @@ function bookTimeslot(
       startTime,
       endTime,
       {
-        description: phone ? `Phone: ${phone}\n` : "" + `Note: ${note}`,
+        description: (phone ? `Phone: ${phone}\n` : "") + `Note: ${note}`,
         guests: email,
         sendInvites: true,
         status: "confirmed",
