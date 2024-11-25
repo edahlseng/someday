@@ -273,11 +273,11 @@ function bookTimeslot(
     }
 
     const event = CalendarApp.getCalendarById(calendarId).createEvent(
-      `Appointment with ${name}`,
+      `Eric <> ${name}`,
       startTime,
       endTime,
       {
-        description: `Phone: ${phone}\nNote: ${note}`,
+        description: phone ? `Phone: ${phone}\n` : "" + `Note: ${note}`,
         guests: email,
         sendInvites: true,
         status: "confirmed",

@@ -35,7 +35,7 @@ export function CalendarPicker() {
   const [TimezoneDropdown, timezone] = useTimezoneDropdown();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<Date | undefined>(
-    undefined
+    undefined,
   );
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [showForm, setShowForm] = useState(false);
@@ -50,7 +50,7 @@ export function CalendarPicker() {
     useBookGoogleTimeslot();
   const availableSlots = useMemo(
     () => new Timeslots(googleSlots, timezone),
-    [googleSlots, timezone]
+    [googleSlots, timezone],
   );
   const resetSelectedDate = () => setSelectedDate(undefined);
   useEffect(() => {
@@ -351,8 +351,8 @@ function ContactForm({
         <Input id="email" name="email" type="email" required />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="phone">Phone Number</Label>
-        <Input id="phone" name="phone" type="tel" required />
+        <Label htmlFor="phone">Phone Number (optional)</Label>
+        <Input id="phone" name="phone" type="tel" />
       </div>
       <div className="space-y-2">
         <Label htmlFor="note">Note (optional)</Label>
